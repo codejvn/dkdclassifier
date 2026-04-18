@@ -1,5 +1,5 @@
 // ─── POST to the ML inference backend ────────────────────────────────────────
-// Proxied through Vite dev server (/predict → http://localhost:8000/predict)
+// Proxied through Vite dev server (/predict → http://:8000/predict)
 // Returns { risk_score_percent: number, risk_flag: "RED"|"YELLOW"|"GREEN" }
 
 export async function callPredict(features) {

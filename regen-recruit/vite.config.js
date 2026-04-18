@@ -9,10 +9,11 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      // Forward /predict → http://localhost:8000/predict (avoids CORS in dev)
+      // Forward /predict → https://codejvn-classfy-dkd-backend.hf.space/predict (avoids CORS in dev)
       '/predict': {
-        target: 'http://localhost:8000',
+        target: 'https://codejvn-classfy-dkd-backend.hf.space',
         changeOrigin: true,
+        secure: true,
       },
     },
   },

@@ -135,7 +135,7 @@ export default function App() {
               Low: {counts.low}
             </div>
             <div className="status-pane" style={{ flex: 5, textAlign: 'right', color: '#808080' }}>
-              ML Backend: localhost:8000 &nbsp;|&nbsp; REGEN-RECRUIT v2.0
+              ML Backend: https://codejvn-classfy-dkd-backend.hf.space/predict; REGEN-RECRUIT v2.0
             </div>
           </div>
         </main>

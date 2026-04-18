@@ -1,0 +1,408 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+@import "tailwindcss";
+
+/* ── Y2K / Windows 2000 minimalist theme ──────────────────────── */
+
+:root {
+  /* System palette — exact Windows 98/2000 values */
+  --face:   #d4d0c8;   /* button / panel face          */
+  --window: #ffffff;   /* window interior               */
+  --text:   #000000;
+  --gray:   #808080;
+  --dk:     #404040;
+  --lit:    #dfdfdf;
+
+  /* Title bar gradient (Win2K active) */
+  --tb-a: #0a246a;
+  --tb-b: #3a80c8;
+
+  /* Risk */
+  --hi:  #cc0000;
+  --med: #996600;
+  --lo:  #007700;
+
+  /* Selection */
+  --sel: #0a246a;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--face);
+  color: var(--text);
+  font-family: 'Tahoma', 'MS Sans Serif', 'Arial', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ── Classic Windows scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar       { width: 17px; height: 17px; }
+::-webkit-scrollbar-track { background: var(--face); }
+::-webkit-scrollbar-thumb {
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+}
+::-webkit-scrollbar-button {
+  display: block;
+  width: 17px; height: 17px;
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+}
+
+/* ── 3D border primitives ──────────────────────────────────────── */
+/* raised: panel sticking out toward the user */
+.raised {
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+}
+/* sunken: field pressed into the surface */
+.sunken {
+  box-shadow:
+    inset  1px  1px #0a0a0a, inset -1px -1px #fff,
+    inset  2px  2px #808080, inset -2px -2px #dfdfdf;
+}
+/* etched: thin inset line (groupbox borders) */
+.etched {
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #ffffff;
+}
+
+/* ── Title bar ─────────────────────────────────────────────────── */
+.win-title {
+  background: linear-gradient(90deg, var(--tb-a) 0%, var(--tb-b) 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 4px 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  user-select: none;
+}
+.win-title-btn {
+  width: 16px; height: 14px;
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: bold;
+  color: #000;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.win-title-btn:active {
+  box-shadow:
+    inset  1px  1px #0a0a0a, inset -1px -1px #fff,
+    inset  2px  2px #808080, inset -2px -2px #dfdfdf;
+}
+
+/* ── Menu bar ──────────────────────────────────────────────────── */
+.menu-bar {
+  background: var(--face);
+  padding: 1px 2px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #808080;
+}
+.menu-item {
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: default;
+  user-select: none;
+}
+.menu-item:hover {
+  background: var(--sel);
+  color: #fff;
+}
+
+/* ── Toolbar ───────────────────────────────────────────────────── */
+.toolbar {
+  background: var(--face);
+  padding: 2px 3px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  border-bottom: 1px solid #808080;
+  box-shadow: inset 0 -1px #ffffff;
+}
+.toolbar-sep {
+  width: 2px;
+  height: 22px;
+  margin: 0 3px;
+  box-shadow: inset 1px 0 #808080, inset -1px 0 #ffffff;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn-win {
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+  color: var(--text);
+  font-family: 'Tahoma', 'Arial', sans-serif;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  min-height: 23px;
+  outline: none;
+}
+.btn-win:hover { background: #e4e0d8; }
+.btn-win:active {
+  box-shadow:
+    inset  1px  1px #0a0a0a, inset -1px -1px #fff,
+    inset  2px  2px #808080, inset -2px -2px #dfdfdf;
+  padding: 4px 7px 2px 9px;
+}
+.btn-win:focus {
+  outline: 1px dotted #000;
+  outline-offset: -4px;
+}
+
+/* ── Inputs ────────────────────────────────────────────────────── */
+.win-input {
+  background: #ffffff;
+  box-shadow:
+    inset  1px  1px #0a0a0a, inset -1px -1px #fff,
+    inset  2px  2px #808080, inset -2px -2px #dfdfdf;
+  border: none;
+  color: var(--text);
+  font-family: 'Tahoma', 'Arial', sans-serif;
+  font-size: 12px;
+  padding: 2px 5px;
+  outline: none;
+  width: 100%;
+}
+.win-input:focus { outline: 2px solid #316ac5; outline-offset: -2px; }
+
+/* ── Range slider ──────────────────────────────────────────────── */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  background: #808080;
+  box-shadow: inset 1px 1px #404040, inset -1px -1px #dfdfdf;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px; height: 21px;
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+}
+
+/* ── Groupbox ──────────────────────────────────────────────────── */
+.groupbox {
+  border: 1px solid #808080;
+  padding: 14px 10px 10px;
+  position: relative;
+  margin-top: 10px;
+  box-shadow: inset -1px -1px #ffffff;
+}
+.groupbox > legend,
+.groupbox-label {
+  position: absolute;
+  top: -8px; left: 8px;
+  padding: 0 4px;
+  background: var(--face);
+  font-size: 11px;
+  font-weight: bold;
+  color: #000;
+}
+
+/* ── Table ─────────────────────────────────────────────────────── */
+.win-table {
+  border-collapse: collapse;
+  width: 100%;
+  background: #ffffff;
+  font-size: 12px;
+}
+.win-table th {
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+  padding: 3px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.win-table th:active {
+  box-shadow:
+    inset  1px  1px #0a0a0a, inset -1px -1px #fff,
+    inset  2px  2px #808080, inset -2px -2px #dfdfdf;
+}
+.win-table td {
+  padding: 3px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid #e4e4e4;
+}
+.win-row { cursor: pointer; }
+.win-row:nth-child(even) { background: #f0f4ff; }
+.win-row:nth-child(odd)  { background: #ffffff; }
+.win-row:hover { background: #cce0ff !important; }
+.win-row.selected { background: var(--sel) !important; }
+.win-row.selected td { color: #ffffff !important; }
+
+/* ── Status bar ────────────────────────────────────────────────── */
+.status-bar {
+  background: var(--face);
+  border-top: 1px solid #808080;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px 3px;
+}
+.status-pane {
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #ffffff;
+  padding: 1px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Ticker / address bar ──────────────────────────────────────── */
+.ticker-wrap {
+  background: var(--face);
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid #808080;
+}
+.ticker-inner {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  height: 18px;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #ffffff;
+  background: #ffffff;
+}
+@keyframes ticker {
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+.marquee-inner {
+  display: inline-block;
+  white-space: nowrap;
+  position: absolute;
+  top: 1px;
+  animation: ticker 38s linear infinite;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: #000080;
+  line-height: 16px;
+}
+
+/* ── Pulse dot ─────────────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+.pulse-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #00aa00;
+  border: 1px solid #006600;
+  flex-shrink: 0;
+  animation: blink 2.2s ease-in-out infinite;
+}
+
+/* ── Modal backdrop ────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+@keyframes win-open {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.win-dialog {
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf,
+    5px 5px 0 rgba(0,0,0,.45);
+  animation: win-open 0.1s ease-out forwards;
+}
+
+/* ── Risk ──────────────────────────────────────────────────────── */
+.risk-high   { color: var(--hi);  font-weight: bold; }
+.risk-medium { color: var(--med); font-weight: bold; }
+.risk-low    { color: var(--lo); }
+
+/* ── Risk progress bar (Win95 style) ──────────────────────────── */
+.risk-bar-track {
+  height: 12px;
+  background: #ffffff;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #ffffff;
+  overflow: hidden;
+  min-width: 80px;
+}
+.risk-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* ── Approve button (Windows "default" thick-border style) ─────── */
+.btn-approve {
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px #0a0a0a, inset 1px 1px #fff,
+    inset -2px -2px #808080,  inset 2px 2px #dfdfdf;
+  color: var(--text);
+  font-family: 'Tahoma', 'Arial', sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 5px 20px;
+  cursor: pointer;
+  border: 2px solid #000080;
+  outline: none;
+  min-height: 28px;
+}
+.btn-approve:hover { background: #e4e0d8; }
+.btn-approve:active {
+  box-shadow:
+    inset  1px  1px #0a0a0a, inset -1px -1px #fff,
+    inset  2px  2px #808080, inset -2px -2px #dfdfdf;
+  padding: 6px 19px 4px 21px;
+}
+.btn-approve:focus {
+  outline: 1px dotted #000;
+  outline-offset: -5px;
+}
+
+/* ── Stat box (modal) ──────────────────────────────────────────── */
+.stat-box {
+  background: #ffffff;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #ffffff;
+  padding: 6px 10px;
+}

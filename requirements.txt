@@ -1,0 +1,18 @@
+# DKD Risk Prediction Model — Project Dependencies
+# Install with: pip install -r requirements.txt
+
+# Data processing & numerical computing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Excel I/O
+openpyxl>=3.0.0   # modern .xlsx format
+xlrd>=2.0.1       # legacy .xls format support
+
+# Machine learning & model training
+xgboost>=3.0.0
+scikit-learn>=1.3.0
+
+# Visualization & explainability
+matplotlib>=3.7.0
+shap>=0.51.0

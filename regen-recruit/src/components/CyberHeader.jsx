@@ -1,17 +1,19 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 
 const NAV_ITEMS = ['File', 'Patient', 'View', 'Reports', 'Help'];
 const TOOLBAR_BTNS = [
-  { label: '↺  Refresh', title: 'Refresh patient list' },
-  { label: '⎙  Export',  title: 'Export to CSV' },
-  { label: '⎙  Print',   title: 'Print report' },
+  { label: '↺  Refresh', id: 'refresh', title: 'Refresh patient list' },
+  { label: '⬇  Import',  id: 'import',  title: 'Import from CSV' },
+  { label: '⬆  Export',  id: 'export',  title: 'Export to CSV' },
+  { label: '⎙  Print',   id: 'print',   title: 'Print report' },
 ];
 
 const API_LABEL = { idle: 'STANDBY', ok: 'CONNECTED  ...  OK', error: 'ERROR  ...  CHECK BACKEND' };
 const API_COLOR = { idle: '#808080', ok: '#007700', error: '#cc0000' };
 
-export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med: 0, low: 0 }, apiStatus = 'idle', lastUpload = null }) {
+export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med: 0, low: 0 }, apiStatus = 'idle', lastUpload = null, onExport, onImport, onPrint }) {
   const [clock, setClock] = useState('');
+  const importInputRef = useRef(null);
 
   const tickerText = useMemo(() => {
     const items = [
@@ -67,11 +69,35 @@ export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med
 
       {/* ── Toolbar ── */}
       <div className="toolbar">
-        {TOOLBAR_BTNS.map(({ label, title }) => (
-          <button key={label} className="btn-win" title={title} style={{ fontSize: 11 }}>
+        {TOOLBAR_BTNS.map(({ label, id, title }) => (
+          <button
+            key={id}
+            className="btn-win"
+            title={title}
+            style={{ fontSize: 11 }}
+            onClick={() => {
+              if (id === 'import' && onImport) importInputRef.current?.click();
+              if (id === 'export' && onExport) onExport();
+              if (id === 'print' && onPrint) onPrint();
+            }}
+          >
             {label}
           </button>
         ))}
+
+        {/* Hidden import file input */}
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".csv"
+          style={{ display: 'none' }}
+          onChange={e => {
+            if (e.target.files?.[0] && onImport) {
+              onImport(e.target.files[0]);
+              e.target.value = '';
+            }
+          }}
+        />
 
         <div className="toolbar-sep" />
 

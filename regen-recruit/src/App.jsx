@@ -10,6 +10,224 @@ const DEFAULT_FILTERS = { minRisk: 0, maxAge: 90, minEgfr: 0, showHighOnly: fals
 
 const makeResult = (features, result) => ({ loading: false, features, ...result, error: null });
 
+function parseCSVContent(csv) {
+  const lines = csv.trim().split('\n');
+  if (lines.length < 2) throw new Error('CSV file is empty or invalid');
+
+  const headerLine = lines[0];
+  const headers = [];
+  let current = '';
+  let inQuotes = false;
+
+  // Parse CSV headers with quote support
+  for (let i = 0; i < headerLine.length; i++) {
+    const char = headerLine[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      headers.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  headers.push(current.trim());
+
+  // Parse data rows
+  const rows = [];
+  for (let lineIdx = 1; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx];
+    if (!line.trim()) continue;
+
+    const row = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        row.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    row.push(current.trim());
+    rows.push(row);
+  }
+
+  return { headers, rows };
+}
+
+function importFromCSV(file, setPatients, setPredictions) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const csv = e.target.result;
+      const { headers, rows } = parseCSVContent(csv);
+
+      // Map headers to indices
+      const headerMap = {};
+      headers.forEach((h, i) => {
+        headerMap[h.toLowerCase().replace(/[^a-z0-9]/g, '')] = i;
+      });
+
+      const newPatients = [];
+      const newPredictions = {};
+
+      rows.forEach((row, idx) => {
+        const getId = (name) => {
+          const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const index = headerMap[key];
+          return index !== undefined ? row[index] : null;
+        };
+
+        const patientId = getId('Patient ID');
+        if (!patientId) {
+          console.warn(`Row ${idx + 1}: Missing Patient ID, skipping`);
+          return;
+        }
+
+        const age = getId('Age');
+        const sex = getId('Sex');
+        const meanGlucose = getId('Mean Glucose');
+        const glucoseStd = getId('Glucose Std Dev');
+        const cv = getId('Coeff of Variation');
+        const tir = getId('Time in Range');
+        const tar = getId('Time Above 180');
+        const tbr = getId('Time Below 70');
+        const riskScore = getId('DKD Risk Score');
+        const riskFlag = getId('DKD Risk Flag');
+        const flags = getId('Clinical Flags');
+        const cgmTraceJSON = getId('CGM Trace Data');
+
+        // Parse CGM data from JSON column
+        let glucoseGraphData = [];
+        if (cgmTraceJSON && cgmTraceJSON !== '—') {
+          try {
+            glucoseGraphData = JSON.parse(cgmTraceJSON);
+          } catch (e) {
+            console.warn(`Row ${idx + 1}: Failed to parse CGM data: ${e.message}`);
+          }
+        }
+
+        newPatients.push({
+          id: patientId,
+          age: age && age !== '—' ? parseInt(age) : '—',
+          gender: sex && sex !== '—' ? sex : '—',
+          dkdRisk: riskScore ? parseFloat(riskScore) : 0,
+          cgm: glucoseGraphData.map((d, i) => ({ glucose: d.value, time: String(d.time), index: i })),
+          flags: flags && flags !== 'None' ? flags.split(';').map(f => f.trim()) : [],
+          _fileName: file.name,
+          _glucoseGraphData: glucoseGraphData,
+        });
+
+        // Create prediction record
+        newPredictions[patientId] = {
+          loading: false,
+          error: null,
+          risk_score_percent: riskScore ? parseFloat(riskScore) : 0,
+          risk_flag: riskFlag && riskFlag !== 'N/A' ? riskFlag : null,
+          features: {
+            mean_glucose: meanGlucose ? parseFloat(meanGlucose) : 0,
+            glucose_std: glucoseStd ? parseFloat(glucoseStd) : 0,
+            cv_glucose: cv ? parseFloat(cv) : 0,
+            time_in_range: tir ? parseFloat(tir) / 100 : 0,
+            time_above_range: tar ? parseFloat(tar) / 100 : 0,
+            time_below_range: tbr ? parseFloat(tbr) / 100 : 0,
+          },
+        };
+      });
+
+      setPatients(prev => [...newPatients, ...prev]);
+      setPredictions(prev => ({ ...newPredictions, ...prev }));
+    } catch (err) {
+      alert(`Import error: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportToCSV(patients, predictions) {
+  // Build CSV headers
+  const headers = [
+    'Patient ID',
+    'Age',
+    'Sex',
+    'Mean Glucose (mg/dL)',
+    'Glucose Std Dev (mg/dL)',
+    'Coeff of Variation (%)',
+    'Time in Range (70-180) (%)',
+    'Time Above 180 (%)',
+    'Time Below 70 (%)',
+    'DKD Risk Score (%)',
+    'DKD Risk Flag',
+    'Clinical Flags',
+    'CGM Trace Data (JSON)',
+  ];
+
+  // Build CSV rows
+  const rows = patients.map(p => {
+    const pred = predictions[p.id] ?? {};
+    const features = pred.features ?? {};
+    const riskScore = pred.risk_score_percent ?? p.dkdRisk;
+    const riskFlag = pred.risk_flag ?? 'N/A';
+
+    // Export CGM data as JSON (prioritize _glucoseGraphData if available, fall back to cgm)
+    const cgmData = p._glucoseGraphData?.length > 0 ? p._glucoseGraphData : p.cgm?.map(d => ({ time: d.index ?? d.time, value: d.glucose })) ?? [];
+    const cgmJSON = JSON.stringify(cgmData);
+
+    return [
+      p.id,
+      p.age ?? '—',
+      p.gender ?? '—',
+      features.mean_glucose ?? '—',
+      features.glucose_std ?? '—',
+      features.cv_glucose ?? '—',
+      (features.time_in_range != null ? (features.time_in_range * 100).toFixed(2) : '—'),
+      (features.time_above_range != null ? (features.time_above_range * 100).toFixed(2) : '—'),
+      (features.time_below_range != null ? (features.time_below_range * 100).toFixed(2) : '—'),
+      riskScore?.toFixed(2) ?? '—',
+      riskFlag,
+      (p.flags ?? []).join('; ') || 'None',
+      cgmJSON,
+    ];
+  });
+
+  // Escape CSV values (handle commas, quotes, newlines)
+  const escapeCSV = val => {
+    const str = String(val ?? '');
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  // Build CSV content
+  const csvContent = [
+    headers.map(escapeCSV).join(','),
+    ...rows.map(row => row.map(escapeCSV).join(',')),
+  ].join('\n');
+
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `dkd-cohort-${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function effectiveRisk(patient, predictions) {
   const p = predictions[patient.id];
   return (p && !p.loading && p.risk_score_percent != null) ? p.risk_score_percent : patient.dkdRisk;
@@ -85,6 +303,8 @@ export default function App() {
         counts={counts}
         apiStatus={apiStatus}
         lastUpload={lastUpload}
+        onImport={file => importFromCSV(file, setPatients, setPredictions)}
+        onExport={() => exportToCSV(patients, predictions)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

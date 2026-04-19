@@ -11,7 +11,7 @@ const TOOLBAR_BTNS = [
 const API_LABEL = { idle: 'STANDBY', ok: 'CONNECTED  ...  OK', error: 'ERROR  ...  CHECK BACKEND' };
 const API_COLOR = { idle: '#808080', ok: '#007700', error: '#cc0000' };
 
-export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med: 0, low: 0 }, apiStatus = 'idle', lastUpload = null, onExport, onImport, onPrint }) {
+export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med: 0, low: 0 }, apiStatus = 'idle', lastUpload = null, onExport, onImport, onPrint, musicPlaying = false, onMusicToggle }) {
   const [clock, setClock] = useState('');
   const importInputRef = useRef(null);
 
@@ -98,6 +98,18 @@ export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med
             }
           }}
         />
+
+        <div className="toolbar-sep" />
+
+        {/* Music toggle button */}
+        <button
+          className="btn-win"
+          title={musicPlaying ? 'Mute music' : 'Play music'}
+          style={{ fontSize: 14, padding: '0 6px' }}
+          onClick={onMusicToggle}
+        >
+          {musicPlaying ? '🔊' : '🔇'}
+        </button>
 
         <div className="toolbar-sep" />
 

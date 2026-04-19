@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 import CyberHeader from './components/CyberHeader';
 import Sidebar from './components/Sidebar';
 import PatientTable from './components/PatientTable';
 import DeepDiveModal from './components/DeepDiveModal';
 import CsvUpload from './components/CsvUpload';
+import bgMusic from './assets/worldwide-songs-collections_i-want-it-that-way-backstreet-boys-[AudioTrimmer.com].mp3';
 
 const DEFAULT_FILTERS = { minRisk: 0, maxAge: 90, minEgfr: 0, showHighOnly: false };
 
@@ -240,6 +241,21 @@ export default function App() {
   const [predictions, setPredictions]  = useState({});
   const [apiStatus, setApiStatus]      = useState('idle');
   const [lastUpload, setLastUpload]    = useState(null);
+  const [musicPlaying, setMusicPlaying] = useState(true);
+  const audioRef = useRef(null);
+
+  // Handle background music
+  useEffect(() => {
+    if (audioRef.current) {
+      if (musicPlaying) {
+        audioRef.current.play().catch(() => {
+          // Browser blocked autoplay, that's ok
+        });
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [musicPlaying]);
 
   // ── Handle CSV upload result from backend ────────────────────────────────
   const handlePatientUpdate = useCallback((id, changes) => {
@@ -310,6 +326,16 @@ export default function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
+      {/* Background music */}
+      <audio
+        ref={audioRef}
+        src={bgMusic}
+        loop
+        volume={0.3}
+        onPlay={() => setMusicPlaying(true)}
+        onPause={() => setMusicPlaying(false)}
+      />
+
       <CyberHeader
         totalPatients={patients.length}
         counts={counts}
@@ -317,6 +343,8 @@ export default function App() {
         lastUpload={lastUpload}
         onImport={file => importFromCSV(file, setPatients, setPredictions)}
         onExport={() => exportToCSV(patients, predictions)}
+        musicPlaying={musicPlaying}
+        onMusicToggle={() => setMusicPlaying(!musicPlaying)}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

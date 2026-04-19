@@ -1,22 +1,15 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import './index.css';
 import CyberHeader from './components/CyberHeader';
 import Sidebar from './components/Sidebar';
 import PatientTable from './components/PatientTable';
 import DeepDiveModal from './components/DeepDiveModal';
-import { PATIENTS } from './data/mockPatients';
-import { computeCGMFeatures } from './utils/cgmFeatures';
-import { callPredict } from './services/mlApi';
+import CsvUpload from './components/CsvUpload';
 
 const DEFAULT_FILTERS = { minRisk: 0, maxAge: 90, minEgfr: 0, showHighOnly: false };
 
-// predictions shape per patient:
-// { loading: bool, features: obj|null, risk_score_percent: number|null, risk_flag: str|null, error: str|null }
-const makeLoading  = () => ({ loading: true,  features: null, risk_score_percent: null, risk_flag: null, error: null });
-const makeError    = (msg) => ({ loading: false, features: null, risk_score_percent: null, risk_flag: null, error: msg });
-const makeResult   = (features, result) => ({ loading: false, features, ...result, error: null });
+const makeResult = (features, result) => ({ loading: false, features, ...result, error: null });
 
-// Effective risk for sorting / filtering — falls back to mock dkdRisk while loading
 function effectiveRisk(patient, predictions) {
   const p = predictions[patient.id];
   return (p && !p.loading && p.risk_score_percent != null) ? p.risk_score_percent : patient.dkdRisk;
@@ -25,61 +18,74 @@ function effectiveRisk(patient, predictions) {
 export default function App() {
   const [filters, setFilters]          = useState(DEFAULT_FILTERS);
   const [selectedPatient, setSelected] = useState(null);
-  const [predictions, setPredictions]  = useState(
-    () => Object.fromEntries(PATIENTS.map(p => [p.id, makeLoading()]))
-  );
+  const [patients, setPatients]        = useState([]);
+  const [predictions, setPredictions]  = useState({});
+  const [apiStatus, setApiStatus]      = useState('idle');
+  const [lastUpload, setLastUpload]    = useState(null);
 
-  // ── Fetch a single patient's prediction ──────────────────────────────────
-  const fetchOne = useCallback(async (patient) => {
-    setPredictions(prev => ({ ...prev, [patient.id]: makeLoading() }));
-    try {
-      const features = computeCGMFeatures(patient.cgm);
-      const result   = await callPredict(features);
-      setPredictions(prev => ({ ...prev, [patient.id]: makeResult(features, result) }));
-    } catch (err) {
-      setPredictions(prev => ({ ...prev, [patient.id]: makeError(err.message) }));
-    }
+  // ── Handle CSV upload result from backend ────────────────────────────────
+  const handlePatientUpdate = useCallback((id, changes) => {
+    setPatients(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
   }, []);
 
-  // ── Fetch all patients on mount ──────────────────────────────────────────
-  useEffect(() => {
-    PATIENTS.forEach(p => fetchOne(p));
-  }, [fetchOne]);
+  const handleCsvResult = useCallback((result, fileName) => {
+    const id           = `UP-${Date.now()}`;
+    const score        = Math.round(result.risk_score_percent * 10) / 10;
+    const demographics = result.patient_demographics ?? {};
+    const graphData    = result.glucose_graph_data    ?? [];
+
+    const newPatient = {
+      id,
+      age:               demographics.age ?? '—',
+      gender:            demographics.sex ?? '—',
+      dkdRisk:           score,
+      cgm:               graphData.map((d, i) => ({ glucose: d.value, time: String(d.time), index: i })),
+      flags:             ['CSV_UPLOAD'],
+      _fileName:         fileName,
+      _glucoseGraphData: graphData,
+    };
+
+    setLastUpload(new Date());
+    setApiStatus('ok');
+    setPatients(prev => [newPatient, ...prev]);
+    setPredictions(prev => ({
+      ...prev,
+      [id]: makeResult(result.extracted_features ?? {}, { risk_score_percent: score, risk_flag: result.risk_flag }),
+    }));
+  }, []);
 
   const filtered = useMemo(() =>
-    PATIENTS
+    patients
       .filter(p => {
         const risk = effectiveRisk(p, predictions);
-        if (risk < filters.minRisk)                  return false;
-        if (p.age > filters.maxAge)                  return false;
-        if (p.egfr < filters.minEgfr)               return false;
-        if (filters.showHighOnly && risk <= 80)      return false;
+        if (risk < filters.minRisk)             return false;
+        if (filters.showHighOnly && risk <= 80) return false;
         return true;
       })
       .sort((a, b) => effectiveRisk(b, predictions) - effectiveRisk(a, predictions)),
-    [filters, predictions]
+    [filters, predictions, patients]
   );
 
-  // Status bar counts (use live predictions where available)
   const counts = useMemo(() => {
-    let high = 0, med = 0, low = 0, loading = 0;
-    PATIENTS.forEach(p => {
-      const pred = predictions[p.id];
-      if (pred?.loading) { loading++; return; }
-      const r = pred?.risk_score_percent ?? p.dkdRisk;
+    let high = 0, med = 0, low = 0;
+    patients.forEach(p => {
+      const r = predictions[p.id]?.risk_score_percent ?? p.dkdRisk;
       if (r > 80) high++;
       else if (r >= 50) med++;
       else low++;
     });
-    return { high, med, low, loading };
-  }, [predictions]);
-
-  const anyLoading = counts.loading > 0;
+    return { high, med, low };
+  }, [predictions, patients]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
-      <CyberHeader />
+      <CyberHeader
+        totalPatients={patients.length}
+        counts={counts}
+        apiStatus={apiStatus}
+        lastUpload={lastUpload}
+      />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -87,8 +93,8 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           totalShown={filtered.length}
-          totalAll={PATIENTS.length}
-          anyLoading={anyLoading}
+          totalAll={patients.length}
+          anyLoading={false}
         />
 
         <main
@@ -99,29 +105,24 @@ export default function App() {
           <div className="win-title" style={{ fontSize: 11 }}>
             <span style={{ fontSize: 12 }}>📋</span>
             <span style={{ flex: 1 }}>Patient Cohort — DKD Risk Assessment</span>
-            {anyLoading && (
-              <span style={{ fontWeight: 'normal', fontSize: 11, color: '#aad4ff', marginRight: 10 }}>
-                ⏳ Running ML inference...
-              </span>
-            )}
             <span style={{ fontWeight: 'normal', fontSize: 11 }}>
               {filtered.length} record{filtered.length !== 1 ? 's' : ''} &nbsp;|&nbsp; sorted by risk ↓
             </span>
           </div>
+
+          <CsvUpload onResult={handleCsvResult} onApiStatus={setApiStatus} />
 
           <PatientTable
             patients={filtered}
             predictions={predictions}
             selectedId={selectedPatient?.id}
             onSelect={setSelected}
-            onRetry={fetchOne}
+            onRetry={() => {}}
           />
 
           {/* Status bar */}
           <div className="status-bar">
-            <div className="status-pane" style={{ flex: 2 }}>
-              {anyLoading ? `Inferring... (${counts.loading} pending)` : 'Ready'}
-            </div>
+            <div className="status-pane" style={{ flex: 2 }}>Ready</div>
             <div className="status-pane" style={{ flex: 3 }}>
               {filtered.length} patient{filtered.length !== 1 ? 's' : ''} displayed
             </div>
@@ -146,7 +147,8 @@ export default function App() {
           patient={selectedPatient}
           prediction={predictions[selectedPatient.id]}
           onClose={() => setSelected(null)}
-          onRetry={() => fetchOne(selectedPatient)}
+          onUpdate={handlePatientUpdate}
+          onRetry={() => {}}
         />
       )}
     </div>

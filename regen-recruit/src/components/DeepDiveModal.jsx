@@ -1,6 +1,7 @@
 // ─── Deep Dive Modal — patient detail + live ML prediction ───────────────────
 import { useEffect, useRef, useState } from 'react';
 import CGMChart from './CGMChart';
+import PatientGraph from './PatientGraph';
 
 const FLAG_COLORS = { RED: '#cc0000', YELLOW: '#996600', GREEN: '#007700' };
 const FLAG_BG     = { RED: '#fff0f0', YELLOW: '#fffacd', GREEN: '#f0fff0' };
@@ -53,10 +54,12 @@ function FeatureRow({ label, value, unit, good, warn, bad, invert }) {
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-export default function DeepDiveModal({ patient, prediction, onClose, onRetry }) {
+export default function DeepDiveModal({ patient, prediction, onClose, onUpdate, onRetry }) {
   const backdropRef = useRef();
   const [approved, setApproved] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [age, setAge]   = useState(patient.age);
+  const [sex, setSex]   = useState(patient.gender);
 
   useEffect(() => {
     const h = e => e.key === 'Escape' && onClose();
@@ -84,7 +87,9 @@ export default function DeepDiveModal({ patient, prediction, onClose, onRetry })
   const riskBorder = liveFlag ? (FLAG_BORDER[liveFlag] ?? '#aaa')    : riskColor;
   const riskLabel  = liveFlag ?? (liveScore > 80 ? 'HIGH' : liveScore >= 50 ? 'MEDIUM' : 'LOW');
 
-  const meanGlucose = Math.round(patient.cgm.reduce((s, d) => s + d.glucose, 0) / patient.cgm.length);
+  const meanGlucose = patient.cgm.length > 0
+    ? Math.round(patient.cgm.reduce((s, d) => s + d.glucose, 0) / patient.cgm.length)
+    : '—';
 
   return (
     <div className="modal-backdrop" ref={backdropRef} onClick={handleBackdrop}>
@@ -182,8 +187,36 @@ export default function DeepDiveModal({ patient, prediction, onClose, onRetry })
           <div className="groupbox">
             <span className="groupbox-label">Patient Demographics &amp; Clinical Data</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-              <LabeledValue label="Age"          value={patient.age}              unit="yrs" />
-              <LabeledValue label="Sex"          value={patient.gender}           unit="" />
+              {/* Editable Age */}
+              <div className="stat-box" style={{ flex: 1, minWidth: 90 }}>
+                <div style={{ fontSize: 10, color: '#808080', marginBottom: 2 }}>Age</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                  <input
+                    type="number"
+                    className="win-input"
+                    value={age}
+                    min={0} max={120}
+                    style={{ width: 48, fontFamily: 'Courier New, monospace', fontSize: 14, fontWeight: 'bold', color: '#000080', padding: '1px 4px' }}
+                    onChange={e => setAge(e.target.value)}
+                    onBlur={() => onUpdate(patient.id, { age: age === '' ? '—' : Number(age) })}
+                  />
+                  <span style={{ fontSize: 10, color: '#808080' }}>yrs</span>
+                </div>
+              </div>
+              {/* Editable Sex */}
+              <div className="stat-box" style={{ flex: 1, minWidth: 90 }}>
+                <div style={{ fontSize: 10, color: '#808080', marginBottom: 2 }}>Sex</div>
+                <select
+                  className="win-input"
+                  value={sex}
+                  style={{ fontFamily: 'Courier New, monospace', fontSize: 13, fontWeight: 'bold', color: '#000080', padding: '1px 2px', width: '100%' }}
+                  onChange={e => { setSex(e.target.value); onUpdate(patient.id, { gender: e.target.value }); }}
+                >
+                  <option value="—">—</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
               <LabeledValue label="eGFR"         value={patient.egfr}             unit="mL/min" flagColor={patient.egfr < 30 ? '#cc0000' : patient.egfr < 60 ? '#996600' : undefined} />
               <LabeledValue label="HbA1c"        value={patient.hba1c}            unit="%" flagColor={patient.hba1c > 9 ? '#cc0000' : undefined} />
               <LabeledValue label="DM Duration"  value={patient.diabetesDuration} unit="yrs" />
@@ -269,8 +302,13 @@ export default function DeepDiveModal({ patient, prediction, onClose, onRetry })
 
           {/* ── CGM Trace ── */}
           <div className="groupbox">
-            <span className="groupbox-label">CGM Trace — 14-Day Glucose (mg/dL)</span>
-            <CGMChart data={patient.cgm} />
+            <span className="groupbox-label">
+              {patient._glucoseGraphData?.length > 0 ? 'CGM Trace — Uploaded Glucose (mg/dL)' : 'CGM Trace — 14-Day Glucose (mg/dL)'}
+            </span>
+            {patient._glucoseGraphData?.length > 0
+              ? <PatientGraph data={patient._glucoseGraphData} />
+              : <CGMChart data={patient.cgm} />
+            }
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               {[
                 { label: 'Mean Glucose',           value: `${features?.mean_glucose ?? meanGlucose} mg/dL` },
@@ -286,27 +324,6 @@ export default function DeepDiveModal({ patient, prediction, onClose, onRetry })
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* ── SHAP explainability ── */}
-          <div className="groupbox">
-            <span className="groupbox-label">AI Explainability — SHAP Feature Importance</span>
-            <img
-              src={patient.shapImageUrl || undefined}
-              alt={`SHAP feature importance for ${patient.id}`}
-              style={{ maxWidth: '100%', display: patient.shapImageUrl ? 'block' : 'none' }}
-            />
-            {!patient.shapImageUrl && (
-              <div style={{ height: 110, background: '#ffffff', boxShadow: 'inset 1px 1px #808080, inset -1px -1px #ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#808080' }}>
-                <div style={{ fontSize: 24 }}>📊</div>
-                <div style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.8 }}>
-                  SHAP plot pending — awaiting Python backend<br />
-                  <span style={{ fontSize: 10, fontFamily: 'Courier New, monospace', color: '#000080' }}>
-                    GET /api/shap/{patient.id}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ── Action row ── */}

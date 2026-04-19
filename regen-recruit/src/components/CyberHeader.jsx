@@ -1,17 +1,4 @@
-import { useEffect, useState } from 'react';
-
-const TICKER_ITEMS = [
-  'Connected to TRIAL-DB  ...  OK',
-  'ML engine loaded  ...  AUC = 0.94',
-  'Downloading patient records  ...  2,847 records received',
-  'CGM stream active  ...  14 devices synced',
-  'eGFR monitor running  ...  all values current',
-  'Trial registry  ...  NCT05129748 open',
-  'SHAP engine  ...  standby',
-  'HIPAA audit log  ...  enabled',
-  'Last sync  ' + new Date().toLocaleString(),
-  'Connection: TCP/IP  ...  56 kbps',
-];
+import { useEffect, useState, useMemo } from 'react';
 
 const NAV_ITEMS = ['File', 'Patient', 'View', 'Reports', 'Help'];
 const TOOLBAR_BTNS = [
@@ -20,9 +7,26 @@ const TOOLBAR_BTNS = [
   { label: '⎙  Print',   title: 'Print report' },
 ];
 
-export default function CyberHeader() {
+const API_LABEL = { idle: 'STANDBY', ok: 'CONNECTED  ...  OK', error: 'ERROR  ...  CHECK BACKEND' };
+const API_COLOR = { idle: '#808080', ok: '#007700', error: '#cc0000' };
+
+export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med: 0, low: 0 }, apiStatus = 'idle', lastUpload = null }) {
   const [clock, setClock] = useState('');
-  const tickerText = TICKER_ITEMS.join('     |     ');
+
+  const tickerText = useMemo(() => {
+    const items = [
+      `PATIENTS LOADED  ...  ${totalPatients}`,
+      `HIGH RISK  ...  ${counts.high} patient${counts.high !== 1 ? 's' : ''}`,
+      `MEDIUM RISK  ...  ${counts.med} patient${counts.med !== 1 ? 's' : ''}`,
+      `LOW RISK  ...  ${counts.low} patient${counts.low !== 1 ? 's' : ''}`,
+      `ML BACKEND  ...  ${API_LABEL[apiStatus] ?? 'UNKNOWN'}`,
+      `LAST UPLOAD  ...  ${lastUpload ? lastUpload.toLocaleString() : 'N/A'}`,
+      'ML ENGINE  ...  AUC = 0.94',
+      'HIPAA AUDIT LOG  ...  ENABLED',
+      'TRIAL REGISTRY  ...  NCT05129748 OPEN',
+    ];
+    return items.join('     ·     ');
+  }, [totalPatients, counts, apiStatus, lastUpload]);
 
   useEffect(() => {
     const fmt = () =>
@@ -73,8 +77,10 @@ export default function CyberHeader() {
 
         {/* Connection status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 4 }}>
-          <div className="pulse-dot" />
-          <span style={{ fontSize: 11, color: '#007700' }}>Connected</span>
+          <div className="pulse-dot" style={ apiStatus === 'error' ? { background: '#cc0000', boxShadow: '0 0 4px #cc0000' } : undefined } />
+          <span style={{ fontSize: 11, color: API_COLOR[apiStatus] ?? '#808080' }}>
+            {apiStatus === 'ok' ? 'Connected' : apiStatus === 'error' ? 'Error' : 'Standby'}
+          </span>
         </div>
 
         <div className="toolbar-sep" />

@@ -77,7 +77,7 @@ export default function PatientTable({ patients, predictions, selectedId, onSele
       <table className="win-table">
         <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
           <tr>
-            {['Patient ID', 'Age', 'Sex', 'eGFR', 'HbA1c', 'DM Duration', 'DKD Risk (ML)', ''].map(h => (
+            {['Patient ID', 'Age', 'Sex', 'CV Glucose', 'Time in Range', 'DKD Risk (ML)', ''].map(h => (
               <th key={h}>{h}</th>
             ))}
           </tr>
@@ -110,15 +110,30 @@ export default function PatientTable({ patients, predictions, selectedId, onSele
                 <td>
                   <span style={{
                     fontFamily: 'Courier New, monospace',
-                    color: isSelected ? '#ffffff' : eGFRColor(p.egfr),
-                    fontWeight: p.egfr < 30 ? 'bold' : 'normal',
+                    color: isSelected ? '#ffffff' : (
+                      pred.features?.cv_glucose >= 50 ? '#cc0000'
+                      : pred.features?.cv_glucose >= 36 ? '#996600'
+                      : pred.features?.cv_glucose != null ? '#007700'
+                      : '#808080'
+                    ),
                   }}>
-                    {p.egfr}
+                    {pred.features?.cv_glucose != null ? `${pred.features.cv_glucose}%` : '—'}
                   </span>
                 </td>
 
-                <td>{p.hba1c}</td>
-                <td>{p.diabetesDuration} yrs</td>
+                <td>
+                  <span style={{
+                    fontFamily: 'Courier New, monospace',
+                    color: isSelected ? '#ffffff' : (
+                      pred.features?.time_in_range >= 70 ? '#007700'
+                      : pred.features?.time_in_range >= 50 ? '#996600'
+                      : pred.features?.time_in_range != null ? '#cc0000'
+                      : '#808080'
+                    ),
+                  }}>
+                    {pred.features?.time_in_range != null ? `${pred.features.time_in_range}%` : '—'}
+                  </span>
+                </td>
 
                 <td style={{ minWidth: 210 }}>
                   {isSelected

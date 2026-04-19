@@ -267,9 +267,10 @@ async def upload_and_predict(file: UploadFile = File(...)):
         risk_score_percent = round(float(risk_probability) * 100, 2)
 
         # Risk stratification
-        if risk_score_percent >= 80.0:
+        # The Adjusted Clinical Thresholds
+        if risk_score_percent >= 16.0:
             risk_flag = "RED"
-        elif risk_score_percent >= 50.0:
+        elif risk_score_percent >= 5.0:
             risk_flag = "YELLOW"
         else:
             risk_flag = "GREEN"

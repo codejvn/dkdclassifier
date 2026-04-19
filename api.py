@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
 import xgboost as xgb
 import pandas as pd
 import io
@@ -42,50 +43,70 @@ except Exception as e:
     print(f"Warning: Gemini not configured. Column mapping will be unavailable. Error: {e}")
     gemini_model = None
 
-# 4. Semantic Column Mapper using Gemini
+# 4. Semantic Column Mapper using Gemini (Index Hack) with Regex Fallback
 def identify_glucose_column(columns: list[str]) -> str:
     """
-    Use Gemini 1.5 Flash to identify which column contains glucose data.
+    Identify glucose column using the Index Hack (ask Gemini for column index)
+    with regex fallback for robustness.
 
-    Returns the exact column name if found, or "ERROR" if no column matches.
-    Raises HTTPException on API failure or timeout.
+    Returns the exact column name if found.
+    Raises HTTPException if identification fails.
     """
-    if not gemini_model:
+    glucose_col_name = None
+
+    # PRIMARY: Index Hack with Gemini (ask for integer index, not full column name)
+    if gemini_model:
+        try:
+            numbered_cols = "\n".join([f"{i}: {col}" for i, col in enumerate(columns)])
+            prompt = f"""Below is a numbered list of columns from a clinical CSV:
+
+{numbered_cols}
+
+Which index corresponds to the continuous glucose monitor (CGM) readings?
+Return ONLY the integer index.
+If none apply, return 'ERROR'.
+No extra text."""
+
+            response = gemini_model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1,
+                    max_output_tokens=10,
+                ),
+            )
+            result = response.text.strip()
+
+            # Try to parse the index
+            if result != "ERROR":
+                try:
+                    glucose_col_idx = int(result)
+                    if 0 <= glucose_col_idx < len(columns):
+                        glucose_col_name = columns[glucose_col_idx]
+                except (ValueError, IndexError):
+                    pass
+
+        except Exception as e:
+            print(f"Gemini Index Hack failed: {e}. Falling back to regex.")
+
+    # SECONDARY: Regex fallback if Gemini failed (case-insensitive keyword matching)
+    if glucose_col_name is None:
+        keywords = ['gluc', 'cgm', 'sugar', 'value', 'reading']
+        for col in columns:
+            col_lower = col.lower()
+            if any(keyword in col_lower for keyword in keywords):
+                glucose_col_name = col
+                break
+
+    # If both methods failed, raise error
+    if glucose_col_name is None:
         raise HTTPException(
-            status_code=503,
-            detail="Gemini API not configured. Manual column specification required."
+            status_code=400,
+            detail="No valid continuous glucose data column found. "
+                   f"Available columns: {columns}. "
+                   "Try renaming your glucose column to include 'glucose', 'CGM', 'sugar', 'value', or 'reading'."
         )
 
-    columns_str = ", ".join(columns)
-    prompt = f"""You are a clinical CSV analyzer. Your ONLY task: return the exact column name containing glucose data.
-
-Column names:
-{columns_str}
-
-RULES:
-1. Return EXACTLY one of the column names above if it contains glucose/CGM data
-2. Return exactly: ERROR (if no glucose column)
-3. No extra text, quotes, markdown, or explanations
-4. Preserve ALL characters including parentheses, spaces, units - return EXACTLY as shown
-5. Single line only"""
-
-    try:
-        response = gemini_model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0,
-                max_output_tokens=200,
-                top_p=1,
-                top_k=1,
-            ),
-        )
-        result = response.text.strip()
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Gemini API error: {str(e)}"
-        )
+    return glucose_col_name
 
 
 # 5. Define the exact data the React frontend needs to send you
@@ -96,20 +117,35 @@ class PatientFeatures(BaseModel):
     time_above_range: float
     time_below_range: float
     time_in_range: float
+    age: Optional[int] = None
+    sex: Optional[str] = None
 
 # 6. Create the Endpoints!
 @app.post("/predict")
 def predict_dkd_risk(patient: PatientFeatures):
     try:
+        # Extract demographics from request (optional fields)
+        age = patient.age
+        sex = patient.sex
+
         # Convert the incoming JSON into a format XGBoost understands
-        input_df = pd.DataFrame([patient.dict()])
-        
+        # Only use feature columns, exclude age/sex from model input
+        features_dict = {
+            "mean_glucose": patient.mean_glucose,
+            "glucose_std": patient.glucose_std,
+            "cv_glucose": patient.cv_glucose,
+            "time_above_range": patient.time_above_range,
+            "time_below_range": patient.time_below_range,
+            "time_in_range": patient.time_in_range,
+        }
+        input_df = pd.DataFrame([features_dict])
+
         # Get the probability of DKD (Class 1)
         risk_probability = model.predict_proba(input_df)[0][1]
-        
+
         # Convert to a clean percentage for the Y2K dashboard
         risk_score_percent = round(float(risk_probability) * 100, 2)
-        
+
         # Determine the color flag for the frontend
         if risk_score_percent >= 80.0:
             flag = "RED"
@@ -120,11 +156,16 @@ def predict_dkd_risk(patient: PatientFeatures):
 
         return {
             "status": "success",
+            "message": "Inference complete.",
             "risk_score_percent": risk_score_percent,
             "risk_flag": flag,
-            "message": "Inference complete."
+            "patient_demographics": {
+                "age": age,
+                "sex": sex,
+            },
+            "extracted_features": features_dict,
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -134,8 +175,11 @@ async def upload_and_predict(file: UploadFile = File(...)):
     """
     Upload a CSV with glucose readings (column name can be anything) and calculate DKD risk.
 
-    Uses Gemini 1.5 Flash to automatically identify the glucose column via semantic analysis.
+    Uses Gemini 2.5 Flash to automatically identify the glucose column via semantic analysis.
     Processes file entirely in memory for HIPAA compliance (no disk I/O).
+
+    Returns a rich, frontend-ready JSON payload with risk prediction, demographics,
+    extracted features, and time-series glucose data for graphing.
     """
     try:
         # Read file into ephemeral memory
@@ -150,27 +194,33 @@ async def upload_and_predict(file: UploadFile = File(...)):
                 detail=f"Failed to parse CSV: {str(parse_error)}"
             )
 
-        # Use Gemini to identify the glucose column
+        # 1. Clean headers: remove leading/trailing whitespace from column names
+        df.columns = df.columns.str.strip()
+
+        # 2. Extract demographics (age and sex/gender) — case-insensitive, take first value
+        age = None
+        sex = None
+
+        age_cols = [c for c in df.columns if c.lower() == "age"]
+        if age_cols:
+            try:
+                age = int(df[age_cols[0]].iloc[0])
+            except (ValueError, TypeError, IndexError):
+                age = None
+
+        sex_cols = [c for c in df.columns if c.lower() in ["sex", "gender"]]
+        if sex_cols:
+            try:
+                sex = str(df[sex_cols[0]].iloc[0])
+            except (ValueError, TypeError, IndexError):
+                sex = None
+
+        # Use Index Hack + regex fallback to identify the glucose column
         column_names = df.columns.tolist()
-        identified_column = identify_glucose_column(column_names)
-
-        # Check if Gemini found a valid column
-        if identified_column.upper() == "ERROR":
-            raise HTTPException(
-                status_code=400,
-                detail="No valid continuous glucose data column found in the provided file."
-            )
-
-        # Verify the identified column actually exists
-        if identified_column not in df.columns:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Gemini identified '{identified_column}' but column not found. "
-                       f"Available columns: {column_names}"
-            )
+        glucose_col_name = identify_glucose_column(column_names)
 
         # Rename the identified glucose column to our standard name
-        df = df.rename(columns={identified_column: "glucose_value"})
+        df = df.rename(columns={glucose_col_name: "glucose_value"})
 
         # Extract and clean glucose readings
         glucose = df["glucose_value"].dropna().astype(float)
@@ -181,7 +231,7 @@ async def upload_and_predict(file: UploadFile = File(...)):
                 detail="Minimum 5 valid glucose readings required"
             )
 
-        # Calculate the 6 glycemic variability features
+        # Calculate the 6 glycemic variability features (as fractions, matching training data)
         mean_glucose = float(glucose.mean())
         glucose_std = float(glucose.std(ddof=1))
 
@@ -189,18 +239,18 @@ async def upload_and_predict(file: UploadFile = File(...)):
         cv_glucose = (glucose_std / mean_glucose) if mean_glucose > 1e-6 else 0.0
 
         n = len(glucose)
-        time_above_range = 100.0 * (glucose > 180).sum() / n
-        time_below_range = 100.0 * (glucose < 70).sum() / n
-        time_in_range = 100.0 * ((glucose >= 70) & (glucose <= 180)).sum() / n
+        time_above_range = float((glucose > 180).sum() / n)
+        time_below_range = float((glucose < 70).sum() / n)
+        time_in_range = float(((glucose >= 70) & (glucose <= 180)).sum() / n)
 
         # Build feature array in correct order (matches model training)
         features = {
             "mean_glucose": round(mean_glucose, 2),
             "glucose_std": round(glucose_std, 2),
             "cv_glucose": round(cv_glucose, 4),
-            "time_above_range": round(time_above_range, 2),
-            "time_below_range": round(time_below_range, 2),
-            "time_in_range": round(time_in_range, 2),
+            "time_above_range": round(time_above_range, 4),
+            "time_below_range": round(time_below_range, 4),
+            "time_in_range": round(time_in_range, 4),
         }
 
         feature_array = pd.DataFrame([{
@@ -224,13 +274,33 @@ async def upload_and_predict(file: UploadFile = File(...)):
         else:
             risk_flag = "GREEN"
 
+        # 3. Create graph-ready time-series data: [{"time": 0, "value": 110}, ...]
+        glucose_graph_data = (
+            df[['glucose_value']]
+            .dropna()
+            .reset_index(drop=True)
+            .reset_index()
+            .rename(columns={'index': 'time', 'glucose_value': 'value'})
+            .to_dict(orient='records')
+        )
+
+        # 4. Serialization safety: convert NumPy types to standard Python types
+        glucose_graph_data = [
+            {"time": int(item["time"]), "value": float(item["value"])}
+            for item in glucose_graph_data
+        ]
+
         return {
             "status": "success",
-            "message": f"DKD risk assessment complete. Identified column: '{identified_column}'. Processed {n} glucose readings.",
-            "identified_glucose_column": identified_column,
-            "extracted_features": features,
+            "message": "Inference complete.",
             "risk_score_percent": risk_score_percent,
             "risk_flag": risk_flag,
+            "patient_demographics": {
+                "age": age,
+                "sex": sex,
+            },
+            "extracted_features": features,
+            "glucose_graph_data": glucose_graph_data,
         }
 
     except HTTPException:

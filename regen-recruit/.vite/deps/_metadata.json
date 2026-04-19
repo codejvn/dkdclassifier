@@ -1,0 +1,42 @@
+{
+  "hash": "a8fc6b80",
+  "configHash": "ca4844b7",
+  "lockfileHash": "2aa2e3c7",
+  "browserHash": "095b24cc",
+  "optimized": {
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "c8c62ce2",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "5361f4c5",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "13e11a54",
+      "needsInterop": true
+    },
+    "recharts": {
+      "src": "../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "29390b0f",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "react-B6J-hxuQ": {
+      "file": "react-B6J-hxuQ.js",
+      "isDynamicEntry": false
+    },
+    "react-dom-BBtRa12N": {
+      "file": "react-dom-BBtRa12N.js",
+      "isDynamicEntry": false
+    }
+  }
+}

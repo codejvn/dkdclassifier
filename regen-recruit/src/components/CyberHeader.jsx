@@ -75,16 +75,6 @@ export default function CyberHeader({ totalPatients = 0, counts = { high: 0, med
 
         <div className="toolbar-sep" />
 
-        {/* Connection status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 4 }}>
-          <div className="pulse-dot" style={ apiStatus === 'error' ? { background: '#cc0000', boxShadow: '0 0 4px #cc0000' } : undefined } />
-          <span style={{ fontSize: 11, color: API_COLOR[apiStatus] ?? '#808080' }}>
-            {apiStatus === 'ok' ? 'Connected' : apiStatus === 'error' ? 'Error' : 'Standby'}
-          </span>
-        </div>
-
-        <div className="toolbar-sep" />
-
         <span style={{ fontSize: 11, color: '#444', paddingLeft: 4 }}>
           Dr. Chen&nbsp;&nbsp;|&nbsp;&nbsp;Administrator
         </span>

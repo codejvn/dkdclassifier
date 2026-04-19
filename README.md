@@ -3,6 +3,7 @@
 Most at-risk patients aren’t screened for kidney disease until it’s too late. Invera uses glucose data to detect risk and flag patients instantly—turning passive data into actionable insight.
 
 Video Presentation: https://youtu.be/QZQl2pZfwvQ
+
 Hack Princeton Spring 2026
 
 ## Tech Stack

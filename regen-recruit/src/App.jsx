@@ -246,6 +246,18 @@ export default function App() {
     setPatients(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
   }, []);
 
+  const handleDeletePatient = useCallback((id) => {
+    setPatients(prev => prev.filter(p => p.id !== id));
+    setPredictions(prev => {
+      const updated = { ...prev };
+      delete updated[id];
+      return updated;
+    });
+    if (selectedPatient?.id === id) {
+      setSelected(null);
+    }
+  }, [selectedPatient]);
+
   const handleCsvResult = useCallback((result, fileName) => {
     const id           = `UP-${Date.now()}`;
     const score        = Math.round(result.risk_score_percent * 10) / 10;
@@ -338,6 +350,7 @@ export default function App() {
             selectedId={selectedPatient?.id}
             onSelect={setSelected}
             onRetry={() => {}}
+            onDelete={handleDeletePatient}
           />
 
           {/* Status bar */}
@@ -369,6 +382,7 @@ export default function App() {
           onClose={() => setSelected(null)}
           onUpdate={handlePatientUpdate}
           onRetry={() => {}}
+          onDelete={handleDeletePatient}
         />
       )}
     </div>

@@ -54,7 +54,7 @@ function FeatureRow({ label, value, unit, good, warn, bad, invert }) {
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-export default function DeepDiveModal({ patient, prediction, onClose, onUpdate, onRetry }) {
+export default function DeepDiveModal({ patient, prediction, onClose, onUpdate, onRetry, onDelete }) {
   const backdropRef = useRef();
   const [approved, setApproved] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -327,22 +327,37 @@ export default function DeepDiveModal({ patient, prediction, onClose, onUpdate, 
           </div>
 
           {/* ── Action row ── */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, paddingTop: 4, borderTop: '1px solid #808080' }}>
-            {approved ? (
-              <div className="raised" style={{ padding: '5px 16px', background: '#f0fff0', fontWeight: 'bold', color: '#007700', fontSize: 12, border: '1px solid #007700' }}>
-                ✓ Approved — added to trial cohort
-              </div>
-            ) : (
-              <button
-                className="btn-approve"
-                onClick={handleApprove}
-                disabled={approving || isLoading}
-                style={{ opacity: (approving || isLoading) ? 0.6 : 1, cursor: (approving || isLoading) ? 'wait' : 'pointer' }}
-              >
-                {approving ? 'Processing...' : 'Approve for Clinical Trial'}
-              </button>
-            )}
-            <button className="btn-win" style={{ fontSize: 12 }} onClick={onClose}>Cancel</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, paddingTop: 4, borderTop: '1px solid #808080' }}>
+            <button
+              className="btn-win"
+              style={{ fontSize: 12, color: '#cc0000' }}
+              onClick={() => {
+                if (confirm(`Delete patient ${patient.id}? This cannot be undone.`)) {
+                  onDelete?.(patient.id);
+                  onClose();
+                }
+              }}
+              title="Remove patient from table"
+            >
+              Delete Patient
+            </button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {approved ? (
+                <div className="raised" style={{ padding: '5px 16px', background: '#f0fff0', fontWeight: 'bold', color: '#007700', fontSize: 12, border: '1px solid #007700' }}>
+                  ✓ Approved — added to trial cohort
+                </div>
+              ) : (
+                <button
+                  className="btn-approve"
+                  onClick={handleApprove}
+                  disabled={approving || isLoading}
+                  style={{ opacity: (approving || isLoading) ? 0.6 : 1, cursor: (approving || isLoading) ? 'wait' : 'pointer' }}
+                >
+                  {approving ? 'Processing...' : 'Approve for Clinical Trial'}
+                </button>
+              )}
+              <button className="btn-win" style={{ fontSize: 12 }} onClick={onClose}>Cancel</button>
+            </div>
           </div>
 
         </div>

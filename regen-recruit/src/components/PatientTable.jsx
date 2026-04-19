@@ -63,7 +63,7 @@ function eGFRColor(v) {
   return v < 30 ? '#cc0000' : v < 60 ? '#996600' : '#000000';
 }
 
-export default function PatientTable({ patients, predictions, selectedId, onSelect, onRetry }) {
+export default function PatientTable({ patients, predictions, selectedId, onSelect, onRetry, onDelete }) {
   if (patients.length === 0) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', color: '#808080', fontSize: 13 }}>
@@ -150,13 +150,21 @@ export default function PatientTable({ patients, predictions, selectedId, onSele
                   }
                 </td>
 
-                <td>
+                <td style={{ display: 'flex', gap: 4 }}>
                   <button
                     className="btn-win"
                     style={{ fontSize: 11 }}
                     onClick={e => { e.stopPropagation(); onSelect(p); }}
                   >
                     Details...
+                  </button>
+                  <button
+                    className="btn-win"
+                    style={{ fontSize: 11, color: '#cc0000' }}
+                    onClick={e => { e.stopPropagation(); onDelete?.(p.id); }}
+                    title="Remove patient from table"
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>

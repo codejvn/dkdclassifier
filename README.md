@@ -4,6 +4,10 @@ Most at-risk patients aren’t screened for kidney disease until it’s too late
 
 Video Presentation: https://youtu.be/QZQl2pZfwvQ
 
+Google Slides: https://docs.google.com/presentation/d/16BqCawGRC2kVRiTqwJXHL8l2Hx0C_-0a/edit?usp=sharing&ouid=116085661787561221330&rtpof=true&sd=true
+
+`presentation.html` --> HTML version of the presentation
+
 Hack Princeton Spring 2026
 
 ## Tech Stack

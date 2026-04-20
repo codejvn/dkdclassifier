@@ -15,7 +15,7 @@ Hack Princeton Spring 2026
 **Backend:**
 * **Framework:** FastAPI (Python)
 * **Machine Learning:** XGBoost, Pandas, NumPy
-* **Agentic Mapping:** Google Generative AI (Gemini 1.5 Flash)
+* **Agentic Mapping:** Google Generative AI (Gemini 2.5 Flash)
 * **Hosting:** Hugging Face Spaces
 
 **Frontend:**
